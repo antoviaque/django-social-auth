@@ -110,6 +110,12 @@ Configuration
 
   All ``django-social-auth`` URLs names have ``socialauth_`` prefix.
 
+- Change the default URLs used to begin or complete the authentication process
+  if needed, for example if they conflict with some of your URLs::
+
+    SOCIAL_AUTH_BEGIN_URL = r'^login/(?P<backend>[^/]+)/$'
+    SOCIAL_AUTH_COMPLETE_URL = r'^complete/(?P<backend>[^/]+)/$'
+
 - Define context processors if needed::
 
     TEMPLATE_CONTEXT_PROCESSORS = (

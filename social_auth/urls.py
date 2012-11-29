@@ -2,13 +2,20 @@
 from django.conf.urls.defaults import patterns, url
 
 from social_auth.views import auth, complete, disconnect
+from social_auth.utils import setting
+
+
+SOCIAL_AUTH_BEGIN_URL = setting('SOCIAL_AUTH_BEGIN_URL',
+                                r'^login/(?P<backend>[^/]+)/$')
+SOCIAL_AUTH_COMPLETE_URL = setting('SOCIAL_AUTH_COMPLETE_URL',
+                                   r'^complete/(?P<backend>[^/]+)/$')
 
 
 urlpatterns = patterns('',
     # authentication
-    url(r'^login/(?P<backend>[^/]+)/$', auth,
+    url(SOCIAL_AUTH_BEGIN_URL, auth,
         name='socialauth_begin'),
-    url(r'^complete/(?P<backend>[^/]+)/$', complete,
+    url(SOCIAL_AUTH_COMPLETE_URL, complete,
         name='socialauth_complete'),
 
     # XXX: Deprecated, this URLs are deprecated, instead use the login and
