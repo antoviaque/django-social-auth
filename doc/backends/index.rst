@@ -25,6 +25,7 @@ Contents:
    live
    mailru
    mixcloud
+   mock
    odnoklassnikiru
    shopify
    skyrock
