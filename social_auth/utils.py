@@ -1,5 +1,6 @@
 import time
 import random
+import requests
 import hashlib
 import urlparse
 import urllib
@@ -252,6 +253,27 @@ def dsa_urlopen(*args, **kwargs):
     if timeout and 'timeout' not in kwargs:
         kwargs['timeout'] = timeout
     return urlopen(*args, **kwargs)
+
+
+def _dsa_requests(method, *args, **kwargs):
+    """Like requests.<method> wiht method=[get|post] but sets a timeout defined by
+    SOCIAL_AUTH_URLOPEN_TIMEOUT setting if defined (and not already in
+    kwargs)."""
+    timeout = setting('SOCIAL_AUTH_URLOPEN_TIMEOUT')
+    if timeout and 'timeout' not in kwargs:
+        kwargs['timeout'] = timeout
+    if method in ('get', 'post'):
+        return getattr(requests, method)(*args, **kwargs)
+    else:
+        raise ValueError('The method should be "get" or "post"')
+
+
+def dsa_get(*args, **kwargs):
+    return _dsa_requests('get', *args, **kwargs)
+
+
+def dsa_post(*args, **kwargs):
+    return _dsa_requests('post', *args, **kwargs)
 
 
 def get_backend_name(backend):

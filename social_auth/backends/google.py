@@ -13,14 +13,13 @@ APIs console https://code.google.com/apis/console/ Identity option.
 
 OpenID also works straightforward, it doesn't need further configurations.
 """
-from urllib import urlencode
-from urllib2 import Request
+from requests import RequestException
 
 from oauth2 import Request as OAuthRequest
 
 from django.utils import simplejson
 
-from social_auth.utils import setting, dsa_urlopen
+from social_auth.utils import setting, dsa_get
 from social_auth.backends import OpenIdAuth, ConsumerBasedOAuth, BaseOAuth2, \
                                  OAuthBackend, OpenIDBackend, USERNAME
 from social_auth.exceptions import AuthFailed
@@ -210,10 +209,14 @@ def googleapis_email(url, params):
     http://groups.google.com/group/oauth/browse_thread/thread/d15add9beb418ebc
     and: http://code.google.com/apis/accounts/docs/OAuth2.html#CallingAnAPI
     """
-    request = Request(url + '?' + params, headers={'Authorization': params})
+    headers = {'Authorization': params}
     try:
-        return simplejson.loads(dsa_urlopen(request).read())['data']
-    except (ValueError, KeyError, IOError):
+        response = dsa_get(url, params=params, headers=headers)
+        if response.status_code == 200:
+            return simplejson.loads(response.text)['data']
+        else:
+            return None
+    except (ValueError, KeyError, RequestException):
         return None
 
 
@@ -224,10 +227,13 @@ def googleapis_profile(url, access_token):
     https://developers.google.com/accounts/docs/OAuth2Login
     """
     data = {'access_token': access_token, 'alt': 'json'}
-    request = Request(url + '?' + urlencode(data))
     try:
-        return simplejson.loads(dsa_urlopen(request).read())
-    except (ValueError, KeyError, IOError):
+        response = dsa_get(url, params=data)
+        if response.status_code == 200:
+            return simplejson.loads(response.text)
+        else:
+            return None
+    except (ValueError, KeyError, RequestException):
         return None
 
 

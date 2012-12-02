@@ -9,7 +9,8 @@ Also the modules *must* define a BACKENDS dictionary with the backend name
 (which is used for URLs matching) and Auth class, otherwise it won't be
 enabled.
 """
-from urllib2 import Request, HTTPError
+from requests import RequestException
+from urllib2 import HTTPError
 from urllib import urlencode
 
 from openid.consumer.consumer import Consumer, SUCCESS, CANCEL, FAILURE
@@ -26,7 +27,7 @@ from social_auth.models import UserSocialAuth
 from social_auth.utils import setting, model_to_ctype, ctype_to_model, \
                               clean_partial_pipeline, url_add_parameters, \
                               get_random_string, constant_time_compare, \
-                              dsa_urlopen
+                              dsa_get, dsa_post
 from social_auth.store import DjangoOpenIDStore
 from social_auth.exceptions import StopPipeline, AuthException, AuthFailed, \
                                    AuthCanceled, AuthUnknownError, \
@@ -693,7 +694,7 @@ class ConsumerBasedOAuth(BaseOAuth):
 
     def fetch_response(self, request):
         """Executes request and fetchs service response"""
-        response = dsa_urlopen(request.to_url())
+        response = dsa_get(request.to_url())
         return '\n'.join(response.readlines())
 
     def access_token(self, token):
@@ -810,17 +811,19 @@ class BaseOAuth2(BaseOAuth):
         """Completes loging process, must return user instance"""
         self.process_error(self.data)
         params = self.auth_complete_params(self.validate_state())
-        request = Request(self.ACCESS_TOKEN_URL, data=urlencode(params),
-                          headers=self.auth_complete_headers())
 
         try:
-            response = simplejson.loads(dsa_urlopen(request).read())
-        except HTTPError, e:
-            if e.code == 400:
+            http_response = dsa_post(self.ACCESS_TOKEN_URL,
+                                     data=params,
+                                     headers=self.auth_complete_headers())
+
+            if http_response.status_code == 200:
+                response = simplejson.loads(http_response.text)
+            elif http_response.status_code == 400:
                 raise AuthCanceled(self)
             else:
-                raise
-        except (ValueError, KeyError):
+                raise AuthUnknownError(self)
+        except (ValueError, KeyError, RequestException):
             raise AuthUnknownError(self)
 
         self.process_error(response)

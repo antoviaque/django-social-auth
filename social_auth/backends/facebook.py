@@ -16,8 +16,8 @@ import base64
 import hmac
 import hashlib
 import time
+from requests import RequestException
 from urllib import urlencode
-from urllib2 import HTTPError
 
 from django.utils import simplejson
 from django.contrib.auth import authenticate
@@ -25,10 +25,10 @@ from django.http import HttpResponse
 from django.template import TemplateDoesNotExist, RequestContext, loader
 
 from social_auth.backends import BaseOAuth2, OAuthBackend, USERNAME
-from social_auth.utils import sanitize_log_data, backend_setting, setting,\
-    log, dsa_urlopen
-from social_auth.exceptions import AuthException, AuthCanceled, AuthFailed,\
-    AuthTokenError, AuthUnknownError
+from social_auth.utils import sanitize_log_data, backend_setting, setting, \
+                              log, dsa_get
+from social_auth.exceptions import AuthException, AuthCanceled, AuthFailed, \
+                                   AuthTokenError, AuthUnknownError
 
 
 # Facebook configuration
@@ -86,16 +86,23 @@ class FacebookAuth(BaseOAuth2):
         url = FACEBOOK_ME + urlencode(params)
 
         try:
-            data = simplejson.load(dsa_urlopen(url))
+            response = dsa_get(url)
+        except RequestException:
+            extra = {'access_token': sanitize_log_data(access_token)}
+            log('error', 'Request failed while validating access token.',
+                exc_info=True, extra=extra)
+
+        if response.status_code != 200:
+            extra = {'access_token': sanitize_log_data(access_token)}
+            log('error', 'Error validating access token.', extra=extra)
+            raise AuthTokenError(self)
+        
+        try:
+            data = simplejson.loads(response.text)
         except ValueError:
             extra = {'access_token': sanitize_log_data(access_token)}
             log('error', 'Could not load user data from Facebook.',
                 exc_info=True, extra=extra)
-        except HTTPError:
-            extra = {'access_token': sanitize_log_data(access_token)}
-            log('error', 'Error validating access token.',
-                exc_info=True, extra=extra)
-            raise AuthTokenError(self)
         else:
             log('debug', 'Found user data for token %s',
                 sanitize_log_data(access_token), extra={'data': data})
@@ -118,11 +125,16 @@ class FacebookAuth(BaseOAuth2):
                 'code': self.data['code']
             })
             try:
-                response = cgi.parse_qs(dsa_urlopen(url).read())
-            except HTTPError:
+                response = dsa_get(url)
+            except RequestException:
+                raise AuthFailed(self, 'Request failed while authenticating '
+                                       'the app')
+
+            if response.status_code != 200:
                 raise AuthFailed(self, 'There was an error authenticating '
                                        'the app')
 
+            response = cgi.parse_qs(response.text)
             access_token = response['access_token'][0]
             if 'expires' in response:
                 expires = response['expires'][0]
