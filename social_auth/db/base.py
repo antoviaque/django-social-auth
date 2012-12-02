@@ -106,7 +106,7 @@ class UserSocialAuthMixin(object):
 
     @classmethod
     def get_user_by_email(cls, email):
-        return cls.user_model().objects.get(email=email)
+        return cls.user_model().objects.get(email__iexact=email)
 
     @classmethod
     def resolve_user_or_id(cls, user_or_id):
